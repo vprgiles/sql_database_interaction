@@ -8,7 +8,7 @@ def server_connection(server_name: str,
                       autocommit=False):
     try:
         if len(creds) != 2:
-            return TypeError("Credentials list must be of length 2")
+            return TypeError("Credentials list with 2 elements: [username, password]")
 
         connection = pyodbc.connect(
                                      f"DRIVER={driver};"
@@ -30,7 +30,7 @@ def server_connection(server_name: str,
 
 def create_new_database(database_name: str, cursor, connection):
     try:
-        database_present = cursor.execute(f"SELECT name FROM sys.databases WHERE name = '{database_name}'")
+        database_present = cursor.execute(f"SELECT name FROM sys.databases WHERE name = '{database_name}'").fetchall()
         if database_present == []:
             cursor.execute(f"CREATE DATABASE [{database_name}]")
             connection.commit()
