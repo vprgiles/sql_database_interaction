@@ -45,3 +45,39 @@ def create_new_database(database_name: str, cursor, connection):
     except Exception as e:
         return e
 
+
+def generate_template_table(table_name: str, cursor, connection):
+    try:
+        table_present = cursor.execute(f""" SELECT TABLE_NAME
+                                            FROM INFORMATION_SCHEMA.TABLES
+                                            WHERE TABLE_TYPE='BASE TABLE'
+                                            AND TABLE_NAME='{table_name}'""").fetchall()
+        if table_present == []:
+            cursor.execute(f'''
+            CREATE TABLE {table_name} (
+                    PersonId INTEGER PRIMARY KEY,
+                    FirstName NVARCHAR NOT NULL,
+                    LastName  NVARCHAR NOT NULL,
+                    Age INTEGER NULL,
+                    CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+                    );
+                    ''')
+            connection.commit()
+            cursor.close()
+            connection.close()
+        else:
+            print(f"There is already a table with the name: {table_name} " + 
+                    f"in {connection.getinfo(pyodbc.SQL_SERVER_NAME)}")
+            cursor.close()
+            connection.close()
+
+    except Exception as e:
+        return e
+
+
+
+def generate_schema_from_df(dataframe):
+    pass
+
+def generate_table_from_schema(schema:str ):
+    pass
