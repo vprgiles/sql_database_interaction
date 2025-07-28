@@ -210,3 +210,4 @@ __marimo__/
 # Custom files
 secrets.yaml
 yaml_notebook.ipynb
+.vscode
