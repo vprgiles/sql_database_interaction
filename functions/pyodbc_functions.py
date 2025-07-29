@@ -6,6 +6,23 @@ def server_connection(server_name: str,
                       database_name:str = 'master',
                       driver:str = '{ODBC Driver 17 for SQL Server}',
                       autocommit=False):
+    """
+    Creates a new SQL Server database with the specified name if it doesn't already exist.
+
+    Parameters:
+        database_name (str): The name of the database to be created.
+        cursor: A database cursor object used to execute SQL statements.
+        connection: A database connection object used to commit changes and retrieve server information.
+
+    Behavior:
+        - Checks if a database with the given name exists.
+        - If not, creates the database and commits the transaction.
+        - If the database exists, prints a message including the server name.
+        - Closes both the cursor and connection after operation.
+
+    Returns:
+        Exception: If an error occurs during execution, the exception is returned.
+    """
     try:
         if len(creds) != 2:
             return TypeError("Credentials list with 2 elements: [username, password]")
@@ -29,6 +46,23 @@ def server_connection(server_name: str,
 
 
 def create_new_database(database_name: str, cursor, connection):
+    """
+    Creates a new SQL Server database with the specified name if it doesn't already exist.
+
+    Parameters:
+        database_name (str): The name of the database to be created.
+        cursor: A database cursor object used to execute SQL statements.
+        connection: A database connection object used to commit changes and retrieve server information.
+
+    Behavior:
+        - Checks if a database with the given name exists.
+        - If not, creates the database and commits the transaction.
+        - If the database exists, prints a message including the server name.
+        - Closes both the cursor and connection after operation.
+
+    Returns:
+        Exception: If an error occurs during execution, the exception is returned.
+    """
     try:
         database_present = cursor.execute(f"SELECT name FROM sys.databases WHERE name = '{database_name}'").fetchall()
         if database_present == []:
@@ -45,3 +79,7 @@ def create_new_database(database_name: str, cursor, connection):
     except Exception as e:
         return e
 
+
+def create_new_table(table_name: str, cursor, connection):
+
+    return 1
