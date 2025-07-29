@@ -1,5 +1,7 @@
 import pyodbc
 from typing import Any, Literal, List, Dict, Tuple
+import decimal
+from datetime import datetime
 
 def server_connection(server_name: str,
                       creds: list,
@@ -80,9 +82,6 @@ def create_new_database(database_name: str, cursor, connection):
         return e
 
 
-def create_new_table(table_name: str, cursor, connection):
-
-    return 1
 def generate_template_table(table_name: str, cursor, connection):
     try:
         table_present = cursor.execute(f""" SELECT TABLE_NAME
@@ -113,8 +112,73 @@ def generate_template_table(table_name: str, cursor, connection):
 
 
 
-def generate_schema_from_df(dataframe):
-    pass
+def generate_schema_from_df(dataframe, limit_string_search:int=0) -> str:
+    """
+    Generates a SQL table schema from a pandas DataFrame by mapping column data types
+    to SQL-compatible types.
 
-def generate_table_from_schema(schema:str ):
+    Parameters:
+        dataframe (pandas.DataFrame): The input DataFrame whose columns will be analyzed for type inference.
+        limit_string_search ((int), optional (default=0)): If greater than zero, only the first N rows will be 
+        used to assess the maximum string length for VARCHAR vs TEXT inference. Reduces processing time on 
+        large datasets.
+
+    Returns:
+        schema (str): A formatted SQL string representing the CREATE TABLE schema with column names and 
+        inferred data types.
+    """
+    type_mapping = {
+        'int64': 'BIGINT',
+        'int32': 'INT',
+        'int16': 'SMALLINT',
+        'float64': 'FLOAT',
+        'float32': 'REAL',
+        'bool': 'BOOLEAN',
+        'object': 'TEXT',
+        'datetime64[ns]': 'TIMESTAMP' }
+    schema = ""
+    column_definitions = []
+    for col in dataframe.columns:
+        data_type = dataframe[col].dtype
+
+        if data_type == 'object': # Treat objects separately
+            if not dataframe[col].dropna().empty:
+                data_sample = dataframe[col].dropna().iloc[0]
+
+                if isinstance(data_sample, bytes):
+                    sql_type = 'BLOB'
+                elif isinstance(data_sample, bytearray):
+                    sql_type = 'VARBINARY'
+                elif isinstance(data_sample, str):
+                    if limit_string_search > 0:
+                        data = dataframe[col].iloc[:limit_string_search]
+                    else:
+                        data = dataframe[col]
+                    if max(len(str(value)) for value in data) < 255:
+                        sql_type = 'VARCHAR(255)'
+                    else:
+                        sql_type = 'TEXT'
+                elif isinstance(data_sample, decimal.Decimal):
+                    sign, digits, exponent = data_sample.as_tuple()
+                    precision = len(digits)
+                    scale = -int(exponent) if int(exponent) < 0 else 0
+                    sql_type = f'DECIMAL({precision},{scale})'
+                elif isinstance(data_sample, datetime):
+                    sql_type = 'TIMESTAMP'
+                else:
+                    sql_type = 'TEXT' # Assign when the datatype is not one of the written options
+            else: 
+                sql_type = 'TEXT' # Assign when the dataframe column is empty
+        else: 
+            sql_type = type_mapping.get(str(data_type), 'TEXT')
+
+        column_definitions.append(f" {col} {sql_type}")
+        
+    schema += ",\n".join(column_definitions)
+
+    return schema
+
+
+
+def generate_table_from_schema(schema:str, table_name:str ):
     pass
