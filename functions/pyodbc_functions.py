@@ -1,7 +1,8 @@
 import pyodbc
 from typing import Any, Literal, List, Dict, Tuple
 import decimal
-from datetime import datetime
+from datetime import datetime, date, time
+import pandas as pd
 
 def server_connection(server_name: str,
                       creds: list,
@@ -112,7 +113,7 @@ def generate_template_table(table_name: str, cursor, connection):
 
 
 
-def generate_schema_from_df(dataframe, limit_string_search:int=0) -> str:
+def generate_schema_from_df(dataframe: pd.DataFrame, limit_string_search:int=0) -> str:
     """
     Generates a SQL table schema from a pandas DataFrame by mapping column data types
     to SQL-compatible types.
@@ -133,7 +134,7 @@ def generate_schema_from_df(dataframe, limit_string_search:int=0) -> str:
         'int16': 'SMALLINT',
         'float64': 'FLOAT',
         'float32': 'REAL',
-        'bool': 'BOOLEAN',
+        'bool': 'BIT',
         'object': 'TEXT',
         'datetime64[ns]': 'TIMESTAMP' }
     schema = ""
@@ -146,9 +147,11 @@ def generate_schema_from_df(dataframe, limit_string_search:int=0) -> str:
                 data_sample = dataframe[col].dropna().iloc[0]
 
                 if isinstance(data_sample, bytes):
-                    sql_type = 'BLOB'
+                    sql_type = 'VARBINARY(MAX)'
+
                 elif isinstance(data_sample, bytearray):
                     sql_type = 'VARBINARY'
+
                 elif isinstance(data_sample, str):
                     if limit_string_search > 0:
                         data = dataframe[col].iloc[:limit_string_search]
@@ -158,11 +161,20 @@ def generate_schema_from_df(dataframe, limit_string_search:int=0) -> str:
                         sql_type = 'VARCHAR(255)'
                     else:
                         sql_type = 'TEXT'
+
                 elif isinstance(data_sample, decimal.Decimal):
                     sign, digits, exponent = data_sample.as_tuple()
-                    precision = len(digits)
                     scale = -int(exponent) if int(exponent) < 0 else 0
+
+                    if set(str(data_sample).split('.')[0].lstrip('-')) == set('0'):
+                        # Only zeros before decimal point
+                        precision = len(str(data_sample).split('.')[1])
+                    else:
+                        # Non-zeros before decimal point
+                        precision = len(str(data_sample).lstrip('-').replace('.',''))
+
                     sql_type = f'DECIMAL({precision},{scale})'
+
                 elif isinstance(data_sample, datetime):
                     sql_type = 'TIMESTAMP'
                 else:
@@ -180,5 +192,28 @@ def generate_schema_from_df(dataframe, limit_string_search:int=0) -> str:
 
 
 
-def generate_table_from_schema(schema:str, table_name:str ):
-    pass
+def create_table_from_schema(schema:str, table_name:str, cursor, connection):
+    try:
+        table_present = cursor.execute(f""" SELECT TABLE_NAME
+                                            FROM INFORMATION_SCHEMA.TABLES
+                                            WHERE TABLE_TYPE='BASE TABLE'
+                                            AND TABLE_NAME='{table_name}'""").fetchall()
+        if table_present == []: # No table with that name
+            cursor.execute(f'''
+                CREATE TABLE {table_name} (
+                        {schema}
+                        );
+                        ''')
+            connection.commit()
+            cursor.close()
+            connection.close()
+        else:
+            print(f"There is already a table with the name: {table_name} " + 
+                    f"in {connection.getinfo(pyodbc.SQL_SERVER_NAME)}")
+            cursor.close()
+            connection.close()
+
+        pass
+    except Exception as e:
+        return f'There was an error: {e}'
+
