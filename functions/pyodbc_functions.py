@@ -1,32 +1,53 @@
 import pyodbc
 from typing import Any, Literal, List, Dict, Tuple
 import decimal
-from datetime import datetime, date, time
+from datetime import datetime
 import pandas as pd
 
-def close_resources (cursor, connection, mode:int=0):
-    function_dict = {0: lambda: None, 
+
+def close_resources(cursor, connection, mode: int = 0):
+    """Closes resources (cursor, connection) when not required after an operation.
+
+    Parameters
+    ----------
+        cursor : pyodbc.cursor
+            A database cursor object used to execute SQL statements.
+        connection : pyodbc.Connection
+            A database connection object used to commit changes and retrieve server information.
+        mode : int
+            Parameter to close the cursor (1), or close both the cursor and connection (2),
+            default to leaving both open (0).
+    Returns
+    -------
+        str or None
+            Returns a string describing the error if one occurs during execution, otherwise returns None after resource closure.
+    """
+    function_dict = {0: lambda: None,
                      1: lambda: cursor.close(),
                      2: lambda: (cursor.close(), connection.close())}
     try:
         function_dict[mode]()
+        return None
     except Exception as e:
         return f'There was an error: {e}'
 
 
-
 def server_connection(server_name: str,
                       creds: list,
-                      database_name:str = 'master',
-                      driver:str = '{ODBC Driver 17 for SQL Server}',
+                      database_name: str = 'master',
+                      driver: str = '{ODBC Driver 17 for SQL Server}',
                       autocommit=False):
     """
     Creates a new SQL Server database with the specified name if it doesn't already exist.
 
-    Parameters:
-        database_name (str): The name of the database to be created.
-        cursor: A database cursor object used to execute SQL statements.
-        connection: A database connection object used to commit changes and retrieve server information.
+    Parameters
+    ----------
+        database_name (str):
+            The name of the database to be created.
+        cursor : pyodbc.cursor
+            A database cursor object used to execute SQL statements.
+        connection : pyodbc.Connection
+         A database connection object used to commit changes and retrieve server information.
 
     Behavior:
         - Checks if a database with the given name exists.
@@ -58,21 +79,21 @@ def server_connection(server_name: str,
     return connection, cursor
 
 
-
-def create_new_database(database_name: str, cursor: pyodbc.Cursor, connection: pyodbc.Connection, close_connection:int = 0):
+def create_new_database(database_name: str, cursor: pyodbc.Cursor,
+                        connection: pyodbc.Connection, close_connection: int = 0):
     """
     Creates a new SQL Server database with the specified name if it doesn't already exist.
 
     Parameters
     ----------
-        database_name (str): 
+        database_name (str):
             The name of the database to be created.
-        cursor: 
+        cursor:
             A database cursor object used to execute SQL statements.
-        connection: 
+        connection:
             A database connection object used to commit changes and retrieve server information.
         close_connection : int
-            Integer to close the cursor (1), or close both the cursor and connection (2), 
+            Integer to close the cursor (1), or close both the cursor and connection (2),
             default to leaving both open (0).
 
     Behavior:
@@ -89,36 +110,37 @@ def create_new_database(database_name: str, cursor: pyodbc.Cursor, connection: p
         if database_present == []:
             cursor.execute(f"CREATE DATABASE [{database_name}]")
             connection.commit()
-            close_resources(cursor, connection, mode=close_connection) #Choose to close the connection
+            close_resources(cursor, connection, mode=close_connection)  # Choose to close the connection
         else:
-            print(f"There is already a database with the name: {database_name} " + 
+            print(f"There is already a database with the name: {database_name} " +
                   f"in {connection.getinfo(pyodbc.SQL_SERVER_NAME)}")
-            close_resources(cursor, connection, mode=close_connection) #Choose to close the connection
-    
+            close_resources(cursor, connection, mode=close_connection)  # Choose to close the connection
+
     except Exception as e:
         return e
 
 
-def generate_template_table(table_name: str, cursor: pyodbc.Cursor, 
-                            connection: pyodbc.Connection, close_connection:int = 0):
+def generate_template_table(table_name: str, cursor: pyodbc.Cursor,
+                            connection: pyodbc.Connection, close_connection: int = 0):
     """Creates a generic template SQL table from a pre-defined (hardcoded) schema. Use to verify functionality.
 
     Parameters
     ----------
-        table_name : str 
+        table_name : str
             The name of the database to be created.
         cursor : pyodbc.cursor
             A database cursor object used to execute SQL statements.
-        connection : pyodbc.Connection 
+        connection : pyodbc.Connection
             A database connection object used to commit changes and retrieve server information.
         close_connection : int
-            Integer to close the cursor (1), or close both the cursor and connection (2), 
+            Integer to close the cursor (1), or close both the cursor and connection (2),
             default to leaving both open (0).
 
     Returns
     -------
         str or None
-            Returns a string describing the error if one occurs during execution or if the table already exists, otherwise returns None after successful table creation.
+            Returns a string describing the error if one occurs during execution or if the table already exists,
+            otherwise returns None after successful table creation.
     """
     try:
         table_present = cursor.execute(f""" SELECT TABLE_NAME
@@ -136,31 +158,34 @@ def generate_template_table(table_name: str, cursor: pyodbc.Cursor,
                     );
                     ''')
             connection.commit()
-            close_resources(cursor, connection, mode=close_connection) #Choose to close the connection
+            close_resources(cursor, connection, mode=close_connection)  # Choose to close the connection
         else:
-            print(f"There is already a table with the name: {table_name} " + 
-                    f"in {connection.getinfo(pyodbc.SQL_SERVER_NAME)}")
-            close_resources(cursor, connection, mode=close_connection) #Choose to close the connection
+            print(f"There is already a table with the name: {table_name} " +
+                  f"in {connection.getinfo(pyodbc.SQL_SERVER_NAME)}")
+            close_resources(cursor, connection, mode=close_connection)  # Choose to close the connection
 
     except Exception as e:
         return f'There was an error: {e}'
 
 
-
-def generate_schema_from_df(dataframe: pd.DataFrame, limit_string_search:int=0) -> str:
+def generate_schema_from_df(dataframe: pd.DataFrame, limit_string_search: int = 0) -> str:
     """
     Generates a SQL table schema from a pandas DataFrame by mapping column data types
     to SQL-compatible types.
 
-    Parameters:
-        dataframe (pandas.DataFrame): The input DataFrame whose columns will be analyzed for type inference.
-        limit_string_search ((int), optional (default=0)): If greater than zero, only the first N rows will be 
-        used to assess the maximum string length for VARCHAR vs TEXT inference. Reduces processing time on 
-        large datasets.
+    Parameters
+    ----------
+        dataframe (pandas.DataFrame):
+            The input DataFrame whose columns will be analyzed for type inference.
+        limit_string_search ((int), optional (default=0)):
+            If greater than zero, only the first N rows will be used to assess the maximum
+            string length for VARCHAR vs TEXT inference. Reduces processing time on large datasets.
 
-    Returns:
-        schema (str): A formatted SQL string representing the CREATE TABLE schema with column names and 
-        inferred data types.
+    Returns
+    -------
+        schema (str):
+            A formatted SQL string representing the CREATE TABLE schema with column names and
+            inferred data types.
     """
     type_mapping = {
         'int64': 'BIGINT',
@@ -170,13 +195,13 @@ def generate_schema_from_df(dataframe: pd.DataFrame, limit_string_search:int=0) 
         'float32': 'REAL',
         'bool': 'BIT',
         'object': 'TEXT',
-        'datetime64[ns]': 'TIMESTAMP' }
+        'datetime64[ns]': 'TIMESTAMP'}
     schema = ""
     column_definitions = []
     for col in dataframe.columns:
         data_type = dataframe[col].dtype
 
-        if data_type == 'object': # Treat objects separately
+        if data_type == 'object':  # Treat objects separately
             if not dataframe[col].dropna().empty:
                 data_sample = dataframe[col].dropna().iloc[0]
 
@@ -202,76 +227,76 @@ def generate_schema_from_df(dataframe: pd.DataFrame, limit_string_search:int=0) 
                         precision = len(str(data_sample).split('.')[1])
                     else:
                         # Non-zeros before decimal point
-                        precision = len(str(data_sample).lstrip('-').replace('.',''))
+                        precision = len(str(data_sample).lstrip('-').replace('.', ''))
 
                     sql_type = f'DECIMAL({precision},{scale})'
 
                 elif isinstance(data_sample, datetime):
                     sql_type = 'TIMESTAMP'
                 else:
-                    sql_type = 'TEXT' # Assign when the datatype is not one of the written options
-            else: 
-                sql_type = 'TEXT' # Assign when the dataframe column is empty
-        else: 
+                    sql_type = 'TEXT'  # Assign when the datatype is not one of the written options
+            else:
+                sql_type = 'TEXT'  # Assign when the dataframe column is empty
+        else:
             sql_type = type_mapping.get(str(data_type), 'TEXT')
 
         column_definitions.append(f" {col} {sql_type}")
-        
+
     schema += ",\n".join(column_definitions)
 
     return schema
 
 
-
-def create_table_from_schema(schema:str, table_name:str, cursor: pyodbc.Cursor, 
-                             connection: pyodbc.Connection, close_connection:int = 0):
+def create_table_from_schema(schema: str, table_name: str, cursor: pyodbc.Cursor,
+                             connection: pyodbc.Connection, close_connection: int = 0):
     """
     Creates a SQL table from a schema in text form.
 
     Parameters
     ----------
         schema : str
-            The schema of the database in string form. 
-        table_name : str 
+            The schema of the database in string form.
+        table_name : str
             The name of the database to be created.
         cursor : pyodbc.cursor
             A database cursor object used to execute SQL statements.
-        connection : pyodbc.Connection 
+        connection : pyodbc.Connection
             A database connection object used to commit changes and retrieve server information.
         close_connection : int
-            Integer to close the cursor (1), or close both the cursor and connection (2), 
+            Integer to close the cursor (1), or close both the cursor and connection (2),
             default to leaving both open (0).
 
     Returns
     -------
         str or None
-            Returns a string describing the error if one occurs during execution or if the table already exists, otherwise returns None after successful table creation.
+            Returns a string describing the error if one occurs during execution or if the table already exists,
+            otherwise returns None after successful table creation.
     """
     try:
         table_present = cursor.execute(f""" SELECT TABLE_NAME
                                             FROM INFORMATION_SCHEMA.TABLES
                                             WHERE TABLE_TYPE='BASE TABLE'
                                             AND TABLE_NAME='{table_name}'""").fetchall()
-        if table_present == []: # No table with that name
+        if table_present == []:  # No table with that name
             cursor.execute(f'''
                 CREATE TABLE {table_name} (
                         {schema}
                         );
                         ''')
             connection.commit()
-            close_resources(cursor, connection, mode=close_connection) #Choose to close the connection
+            close_resources(cursor, connection, mode=close_connection)  # Choose to close the connection
         else:
             already_table_message = (f"There is already a table with the name: {table_name}") + \
                                      (f" in {connection.getinfo(pyodbc.SQL_SERVER_NAME)}")
-            close_resources(cursor, connection, mode=close_connection) #Choose to close the connection
+            close_resources(cursor, connection, mode=close_connection)  # Choose to close the connection
             return already_table_message
 
     except Exception as e:
         return f'There was an error: {e}'
 
 
-
-def return_table_schema(table_name: str, cursor: pyodbc.Cursor, connection: pyodbc.Connection, close_connection:int = 0):
+def return_table_schema(table_name: str, cursor: pyodbc.Cursor,
+                        connection: pyodbc.Connection, close_connection: int = 0):
     """
     Generates and returns the SQL column definitions for a specified table in a pyodbc-supported database.
 
@@ -284,7 +309,7 @@ def return_table_schema(table_name: str, cursor: pyodbc.Cursor, connection: pyod
     connection : pyodbc.Connection
         An open pyodbc connection object associated with the cursor.
     close_connection : int
-            Integer to close the cursor (1), or close both the cursor and connection (2), 
+            Integer to close the cursor (1), or close both the cursor and connection (2),
             default to leaving both open (0).
 
     Returns
@@ -297,14 +322,12 @@ def return_table_schema(table_name: str, cursor: pyodbc.Cursor, connection: pyod
     schema_lines = []
     try:
         for col in cursor.columns(table=table_name):
-            #print(col.column_name, (col.type_name).upper(), col.column_size, col.decimal_digits)
-
             if col.type_name.upper() == 'VARCHAR':
                 schema_lines.append(f" {col.column_name} {(col.type_name).upper()}({col.column_size})")
 
             elif col.type_name.upper() == 'DECIMAL':
                 schema_lines.append(f" {col.column_name} {(col.type_name).upper()}({col.column_size},{col.decimal_digits})")
-            
+
             elif col.type_name.upper() == 'VARBINARY':
                 if col.column_size == 0:
                     col_size = 'MAX'
@@ -314,9 +337,9 @@ def return_table_schema(table_name: str, cursor: pyodbc.Cursor, connection: pyod
 
             else:
                 schema_lines.append(f" {col.column_name} {(col.type_name).upper()}")
-        
+
         schema += ",\n".join(schema_lines)
-        close_resources(cursor, connection, mode=close_connection) #Choose to close the connection
+        close_resources(cursor, connection, mode=close_connection)  # Choose to close the connection
         return schema
 
     except Exception as e:
