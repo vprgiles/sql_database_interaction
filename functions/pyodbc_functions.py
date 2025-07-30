@@ -193,15 +193,21 @@ def create_table_from_schema(schema:str, table_name:str, cursor, connection):
     """
     Creates a SQL table from a schema in text form.
 
-    Parameters:
-        schema (str): The schema of the database in string form. 
-        table_name (str): The name of the database to be created.
-        cursor (connection.cursor()): A database cursor object used to execute SQL statements.
-        connection (pyodbc.connection()): A database connection object used to commit changes and retrieve server information.
+    Parameters
+    ----------
+        schema : str
+            The schema of the database in string form. 
+        table_name : str 
+            The name of the database to be created.
+        cursor : pyodbc.cursor
+            A database cursor object used to execute SQL statements.
+        connection : pyodbc.Connection 
+            A database connection object used to commit changes and retrieve server information.
 
     Returns
     -------
-        str or None (): Returns a string describing the error if one occurs during execution or if the table already exists, otherwise returns None after successful table creation.
+        str or None
+            Returns a string describing the error if one occurs during execution or if the table already exists, otherwise returns None after successful table creation.
     """
     try:
         table_present = cursor.execute(f""" SELECT TABLE_NAME
@@ -223,6 +229,57 @@ def create_table_from_schema(schema:str, table_name:str, cursor, connection):
             cursor.close()
             connection.close()
             return already_table_message
+
+    except Exception as e:
+        return f'There was an error: {e}'
+
+
+
+def return_table_schema(table_name: str, cursor: pyodbc.Cursor, connection: pyodbc.Connection):
+    """
+    Generates and returns the SQL column definitions for a specified table in a pyodbc-supported database.
+
+    Parameters
+    ----------
+    table_name : str
+        The name of the table whose schema will be retrieved.
+    cursor : pyodbc.Cursor
+        An active pyodbc cursor used to query the database metadata.
+    connection : pyodbc.Connection
+        An open pyodbc connection object associated with the cursor.
+
+    Returns
+    -------
+    str
+        A formatted string representing the column definitions of the table,
+        including column names, data types, and any size/precision attributes.
+    """
+    schema = ""
+    schema_lines = []
+    try:
+        for col in cursor.columns(table=table_name):
+            #print(col.column_name, (col.type_name).upper(), col.column_size, col.decimal_digits)
+
+            if col.type_name.upper() == 'VARCHAR':
+                schema_lines.append(f" {col.column_name} {(col.type_name).upper()}({col.column_size})")
+
+            elif col.type_name.upper() == 'DECIMAL':
+                schema_lines.append(f" {col.column_name} {(col.type_name).upper()}({col.column_size},{col.decimal_digits})")
+            
+            elif col.type_name.upper() == 'VARBINARY':
+                if col.column_size == 0:
+                    col_size = 'MAX'
+                    schema_lines.append(f" {col.column_name} {(col.type_name).upper()}({col_size})")
+                else:
+                    schema_lines.append(f" {col.column_name} {(col.type_name).upper()}({col.column_size})")
+
+            else:
+                schema_lines.append(f" {col.column_name} {(col.type_name).upper()}")
+        
+        schema += ",\n".join(schema_lines)
+        cursor.close()
+        connection.close()
+        return schema
 
     except Exception as e:
         return f'There was an error: {e}'
