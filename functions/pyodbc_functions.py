@@ -146,11 +146,8 @@ def generate_schema_from_df(dataframe: pd.DataFrame, limit_string_search:int=0) 
             if not dataframe[col].dropna().empty:
                 data_sample = dataframe[col].dropna().iloc[0]
 
-                if isinstance(data_sample, bytes):
+                if isinstance(data_sample, bytes) or isinstance(data_sample, bytearray):
                     sql_type = 'VARBINARY(MAX)'
-
-                elif isinstance(data_sample, bytearray):
-                    sql_type = 'VARBINARY'
 
                 elif isinstance(data_sample, str):
                     if limit_string_search > 0:
@@ -193,6 +190,19 @@ def generate_schema_from_df(dataframe: pd.DataFrame, limit_string_search:int=0) 
 
 
 def create_table_from_schema(schema:str, table_name:str, cursor, connection):
+    """
+    Creates a SQL table from a schema in text form.
+
+    Parameters:
+        schema (str): The schema of the database in string form. 
+        table_name (str): The name of the database to be created.
+        cursor (connection.cursor()): A database cursor object used to execute SQL statements.
+        connection (pyodbc.connection()): A database connection object used to commit changes and retrieve server information.
+
+    Returns
+    -------
+        str or None (): Returns a string describing the error if one occurs during execution or if the table already exists, otherwise returns None after successful table creation.
+    """
     try:
         table_present = cursor.execute(f""" SELECT TABLE_NAME
                                             FROM INFORMATION_SCHEMA.TABLES
@@ -208,12 +218,11 @@ def create_table_from_schema(schema:str, table_name:str, cursor, connection):
             cursor.close()
             connection.close()
         else:
-            print(f"There is already a table with the name: {table_name} " + 
-                    f"in {connection.getinfo(pyodbc.SQL_SERVER_NAME)}")
+            already_table_message = (f"There is already a table with the name: {table_name}") + \
+                                     (f" in {connection.getinfo(pyodbc.SQL_SERVER_NAME)}")
             cursor.close()
             connection.close()
+            return already_table_message
 
-        pass
     except Exception as e:
         return f'There was an error: {e}'
-
