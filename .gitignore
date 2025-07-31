@@ -212,3 +212,4 @@ secrets.yaml
 yaml_notebook.ipynb
 .vscode
 sandbox_notebook.ipynb
+setup.cfg
